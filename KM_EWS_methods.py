@@ -14,7 +14,6 @@ from kramersmoyal import km
 ### Parameters to be specified for the use of kramersmoyal by Rydin Gorjao et al.
 bin_number = 50
 bins = np.array([bin_number])
-bw = 1/bins[0]
 powers = np.array([[0], [1], [2]])
 ###
 
@@ -31,8 +30,10 @@ def linear_detrending(data_array, keep_center = False):
     else:
         return data_array
 
-def full_km_analysis(data_array, Delta_t, bw = bw, bins = bins, powers = powers, centerkmfraction = centerkmfraction):
+def full_km_analysis(data_array, Delta_t, bins = bins, powers = powers, centerkmfraction = centerkmfraction):
     data_array = linear_detrending(data_array, keep_center=True)
+    bin_number=bins[0]
+    bw = 2*(max(data_array)-min(data_array))/bin_number
     ### Determine stable state
     center = np.mean(data_array)
     ### Get estimations of Kramers-Moyal coefficients and keep only the specified fraction around the stable state
@@ -48,8 +49,8 @@ def full_km_analysis(data_array, Delta_t, bw = bw, bins = bins, powers = powers,
     lambda_est = -1*np.polyfit(edges,km1,1)[0]
     return [edges, km1, km2, lambda_est]
 
-def lambda_estimator(data_array, Delta_t, bw = bw, bins = bins, powers = powers, centerkmfraction = centerkmfraction):
-    return full_km_analysis(data_array, Delta_t, bw = bw, bins = bins, powers = powers, centerkmfraction = centerkmfraction)[3]
+def lambda_estimator(data_array, Delta_t, bins = bins, powers = powers, centerkmfraction = centerkmfraction):
+    return full_km_analysis(data_array, Delta_t, bins = bins, powers = powers, centerkmfraction = centerkmfraction)[3]
 
 
 
