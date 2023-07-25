@@ -51,9 +51,11 @@ def full_km_analysis(data_array, Delta_t, bin_number = bin_number, bw=None, cent
     edges = edges[left_index:right_index]
     km1 = km1[left_index:right_index]
     km2 = km2[left_index:right_index]
+    a = km1
+    b = np.sqrt(2*km2)
     ### Estimate lambda as the best linear fit to the first order KM coefficient
     lambda_est = -1*np.polyfit(edges,km1,1)[0]
-    return [edges, km1, km2, lambda_est]
+    return [edges, a, b, lambda_est]
 
 def lambda_estimator(data_array, Delta_t = 1, bin_number = bin_number, bw = None, centerkmfraction = centerkmfraction):
     return full_km_analysis(data_array, Delta_t, bin_number = bin_number, bw = bw, centerkmfraction = centerkmfraction)[3]
@@ -115,8 +117,8 @@ def full_km_analysis_nD(data_array, Delta_t, bin_number = bin_number, bw = None,
     #print(X)
     #print(Y)
     B = np.matmul(np.matmul(np.linalg.inv(np.matmul(np.transpose(X),X)),np.transpose(X)),Y)
-    #print(B)
     B = B[1:,:]
+    #print(B)
     eigvals = -1*np.sort(np.real(np.linalg.eigvals(B)))
     ### Estimate lambda as the best linear fit to the first order KM coefficient
     return [mesh, kmc, eigvals]
