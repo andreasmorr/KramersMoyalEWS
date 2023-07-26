@@ -9,6 +9,7 @@
 
 
 import numpy as np
+from scipy import stats
 import itertools
 from kramersmoyal import km
 
@@ -54,7 +55,7 @@ def full_km_analysis(data_array, Delta_t, bin_number = bin_number, bw=None, cent
     a = km1
     b = np.sqrt(2*km2)
     ### Estimate lambda as the best linear fit to the first order KM coefficient
-    lambda_est = -1*np.polyfit(edges,km1,1)[0]
+    lambda_est = -1*stats.linregress(edges,km1)[0]
     return [edges, a, b, lambda_est]
 
 def lambda_estimator(data_array, Delta_t = 1, bin_number = bin_number, bw = None, centerkmfraction = centerkmfraction):
