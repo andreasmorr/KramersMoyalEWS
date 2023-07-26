@@ -44,7 +44,7 @@ def full_km_analysis(data_array, Delta_t, bin_number = bin_number, bw=None, cent
     kmc, edges = km(data_array, bw = bw, bins = bins, powers = powers)
     edges = edges[0]
     km1 = kmc[1]/Delta_t
-    km2 = kmc[2]/Delta_t - np.square(kmc[1])
+    km2 = (kmc[2] - np.square(kmc[1])/2)/Delta_t
     center_index = np.searchsorted(edges,center)
     left_index = max(0,center_index - round(bin_number*centerkmfraction/2))
     right_index = min(bin_number-1, center_index + round(bin_number*centerkmfraction/2))
