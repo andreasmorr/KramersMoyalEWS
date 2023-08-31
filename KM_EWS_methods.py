@@ -21,7 +21,7 @@ bin_number = 50
 centerkmfraction = 0.5
 ###
 
-def linear_detrending(data_array, keep_center = False):
+def linear_detrending_1D(data_array, keep_center = False):
     data_array = np.copy(data_array)
     center = np.mean(data_array)
     fit = np.polyfit(range(len(data_array)), data_array, 1)
@@ -31,10 +31,10 @@ def linear_detrending(data_array, keep_center = False):
     else:
         return data_array
 
-def full_km_analysis(data_array, Delta_t, bin_number = bin_number, bw=None, centerkmfraction = centerkmfraction):
+def full_km_analysis_1D(data_array, Delta_t, bin_number = bin_number, bw=None, centerkmfraction = centerkmfraction):
     powers = np.array([[0], [1], [2]])
 
-    data_array = linear_detrending(data_array, keep_center=True)
+    data_array = linear_detrending_1D(data_array, keep_center=True)
     bins = np.array([bin_number])
     if bw is None:
         bw = 14*np.std(data_array)/bin_number
@@ -58,22 +58,6 @@ def full_km_analysis(data_array, Delta_t, bin_number = bin_number, bw=None, cent
     lambda_est = -1*stats.linregress(edges,km1)[0]
     return [edges, a, b, lambda_est]
 
-def lambda_estimator(data_array, Delta_t = 1, bin_number = bin_number, bw = None, centerkmfraction = centerkmfraction):
-    return full_km_analysis(data_array, Delta_t, bin_number = bin_number, bw = bw, centerkmfraction = centerkmfraction)[3]
-
-
-
-def variance_estimator(data_array):
-    data_array = linear_detrending(data_array)
-    return np.sum(np.array([x**2 for x in data_array]))/len(data_array)
-
-def ac1_estimator(data_array, lag=1):
-    data_array = linear_detrending(data_array)
-    return np.sum(np.array([data_array[i]*data_array[i + lag] for i in range(len(data_array)-lag)]))/(len(data_array)-lag)/variance_estimator(data_array)
-
-
-
-### Methods for stability analysis of nD data
 def linear_detrending_nD(data_array, keep_center = False):
     data_array = np.copy(data_array)
     n = data_array.shape[0]
@@ -92,34 +76,42 @@ def full_km_analysis_nD(data_array, Delta_t, bin_number = bin_number, bw = None,
     bins = (np.ones(n)*bin_number).astype(int)
     data_array = linear_detrending_nD(data_array, keep_center=True)
     stds = np.array([np.std(data_array[i]) for i in range(n)])
-    max_std = np.max(stds)
     if bw is None:
-        bw = n*14*max_std/bin_number#CHECK WHETHER FACTOR n IS NEEDED
+        bw = n*14/bin_number
     ### Determine stable states
-    data_array = np.array([max_std/stds[i]*(data_array[i]-np.mean(data_array[i]))+np.mean(data_array[i]) for i in range(n)])
+    data_array = np.array([1/stds[i]*(data_array[i]-np.mean(data_array[i]))+np.mean(data_array[i]) for i in range(n)])
     center = np.array([np.mean(data_array[i]) for i in range(n)])
     ### Get estimations of Kramers-Moyal coefficients
     kmc, edges = km(np.transpose(data_array), bw = bw, bins = bins, powers = powers)
-    kmc = kmc[1:]/Delta_t
+    km1 = kmc[1:]/Delta_t
     ### Keep only the specified fraction around the stable state
     for i in range(n):
         center_index = np.searchsorted(edges[i],center[i])
         left_index = max(0,center_index - round(bin_number*centerkmfraction/2))
         right_index = min(bin_number-1, center_index + round(bin_number*centerkmfraction/2))
         edges[i] = edges[i][left_index: right_index]
-        kmc = list(kmc)
+        km1 = list(km1)
         for j in range(n):
-            kmc[j] = kmc[j].take(indices=range(left_index, right_index),axis=i)
+            km1[j] = km1[j].take(indices=range(left_index, right_index),axis=i)
     mesh = np.meshgrid(*edges, indexing="ij")
-    #print(mesh)
-    #print(list(itertools.product(*[range(len(mesh[j])) for j in range(n)])))
     X = np.array([[1] + [mesh[i][tupel] for i in range(n)] for tupel in list(itertools.product(*[range(len(mesh[j])) for j in range(n)]))])
-    Y = np.array([[kmc[i][tupel] for i in range(n)] for tupel in list(itertools.product(*[range(len(mesh[j])) for j in range(n)]))])
-    #print(X)
-    #print(Y)
+    Y = np.array([[km1[i][tupel] for i in range(n)] for tupel in list(itertools.product(*[range(len(mesh[j])) for j in range(n)]))])
     B = np.matmul(np.matmul(np.linalg.inv(np.matmul(np.transpose(X),X)),np.transpose(X)),Y)
     B = B[1:,:]
-    #print(B)
+    ### Estimate lambda as the real part of the eigenvalues of the best linear fit to the first order KM coefficient
     eigvals = -1*np.sort(np.real(np.linalg.eigvals(B)))
-    ### Estimate lambda as the best linear fit to the first order KM coefficient
-    return [mesh, kmc, eigvals]
+    return [mesh, km1, eigvals]
+
+def lambda_estimator(data_array, Delta_t = 1, bin_number = bin_number, bw = None, centerkmfraction = centerkmfraction):
+    if data_array.ndim == 1:
+        return full_km_analysis_1D(data_array, Delta_t, bin_number = bin_number, bw = bw, centerkmfraction = centerkmfraction)[3]
+    if data_array.ndim > 1:
+        return full_km_analysis_nD(data_array, Delta_t, bin_number = bin_number, bw = bw, centerkmfraction = centerkmfraction)[2]
+
+def variance_estimator(data_array):
+    data_array = linear_detrending_1D(data_array)
+    return np.sum(np.array([x**2 for x in data_array]))/len(data_array)
+
+def ac1_estimator(data_array, lag=1):
+    data_array = linear_detrending_1D(data_array)
+    return np.sum(np.array([data_array[i]*data_array[i + lag] for i in range(len(data_array)-lag)]))/(len(data_array)-lag)/variance_estimator(data_array)
