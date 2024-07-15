@@ -9,6 +9,7 @@
 
 
 import numpy as np
+import pandas as pd
 from scipy import stats
 import itertools
 from kramersmoyal import km
@@ -89,6 +90,9 @@ def full_km_analysis_nD(data_array, Delta_t, bin_number = bin_number, bw = None,
         center_index = np.searchsorted(edges[i],center[i])
         left_index = max(0,center_index - round(bin_number*centerkmfraction/2))
         right_index = min(bin_number-1, center_index + round(bin_number*centerkmfraction/2))
+        left_index_ = min(round(bin_number*centerkmfraction), left_index)
+        right_index = max(round(bin_number*centerkmfraction), right_index)
+        left_index = left_index_
         edges[i] = edges[i][left_index: right_index]
         km1 = list(km1)
         for j in range(n):
@@ -101,6 +105,23 @@ def full_km_analysis_nD(data_array, Delta_t, bin_number = bin_number, bw = None,
     ### Estimate lambda as the real part of the eigenvalues of the best linear fit to the first order KM coefficient
     eigvals = -1*np.sort(np.real(np.linalg.eigvals(B)))
     return [mesh, km1, eigvals]
+
+def B11_km_analysis_2D(data_array, Delta_t, bin_number = bin_number, bw = None, centerkmfraction = centerkmfraction):
+    n = data_array.shape[0]
+    powers = np.array([[0,0],[2,0]])
+    bins = (np.ones(n)*bin_number).astype(int)
+    #data_array = linear_detrending_nD(data_array, keep_center=True)
+    #stds = np.array([np.std(data_array[i]) for i in range(n)])
+    if bw is None:
+        bw = n*1/bin_number ####### find good value and communicate the change TODO
+    ### Determine stable states
+    #data_array = np.array([1/stds[i]*(data_array[i]-np.mean(data_array[i]))+np.mean(data_array[i]) for i in range(n)])
+    center = np.array([np.mean(data_array[i]) for i in range(n)])
+    ### Get estimations of Kramers-Moyal coefficients
+    kmc, edges = km(np.transpose(data_array), bw = bw, bins = bins, powers = powers)
+    BB11 = kmc[1]/Delta_t
+    center_index = np.searchsorted(edges[1],center[1])
+    return [edges[0], BB11[:,center_index]]
 
 def lambda_estimator(data_array, Delta_t = 1, bin_number = bin_number, bw = None, centerkmfraction = centerkmfraction):
     if data_array.ndim == 1:
@@ -115,3 +136,48 @@ def variance_estimator(data_array):
 def ac1_estimator(data_array, lag=1):
     data_array = linear_detrending_1D(data_array)
     return np.sum(np.array([data_array[i]*data_array[i + lag] for i in range(len(data_array)-lag)]))/(len(data_array)-lag)/variance_estimator(data_array)
+
+def PCA_cov_estimator(data_array):
+    data_array = linear_detrending_nD(data_array, keep_center=False)
+    n = data_array.shape[0]
+    cov = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            cov[i,j] = np.mean(data_array[i]*data_array[j])
+    eigvals, eigvecs = np.linalg.eig(cov)
+    order = np.argsort(eigvals)
+    eigvals = eigvals[order]
+    eigvecs = eigvecs[:, order]
+    return [eigvals, eigvecs]
+
+def PCA_acov_estimator(data_array):
+    data_array = linear_detrending_nD(data_array, keep_center=False)
+    n = data_array.shape[0]
+    acov = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            acov[i,j] = np.mean(data_array[i,:-1]*data_array[j,1:])#/(np.std(data_array[i,:-1])*np.std(data_array[j,1:]))
+    eigvals, eigvecs = np.linalg.eig(acov)
+    order = np.argsort(eigvals)
+    eigvals = eigvals[order]
+    eigvecs = eigvecs[:, order]
+    return [eigvals, eigvecs]
+
+def MAF_estimator(data_array):
+    data_array = linear_detrending_nD(data_array, keep_center=False)
+    n = data_array.shape[0]
+    cov = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            cov[i,j] = np.mean(data_array[i]*data_array[j])
+    data_array = np.transpose(data_array)
+    eigvals, eigvecs = np.linalg.eig(cov)
+    SDS = np.matmul(np.matmul(np.matmul(data_array,eigvecs),np.diag(eigvals**-0.5)),np.transpose(eigvecs))
+    dSDS = SDS[1:,:] - SDS[:-1,:]
+    cov = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            cov[i,j] = np.mean(dSDS[:,i]*dSDS[:,j])
+    eigvals, eigvecs = np.linalg.eig(cov)
+    eigvals = np.sort(eigvals)[::-1]
+    return eigvals
