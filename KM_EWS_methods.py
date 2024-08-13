@@ -110,12 +110,9 @@ def B11_km_analysis_2D(data_array, Delta_t, bin_number = bin_number, bw = None, 
     n = data_array.shape[0]
     powers = np.array([[0,0],[2,0]])
     bins = (np.ones(n)*bin_number).astype(int)
-    #data_array = linear_detrending_nD(data_array, keep_center=True)
-    #stds = np.array([np.std(data_array[i]) for i in range(n)])
     if bw is None:
         bw = n*1/bin_number ####### find good value and communicate the change TODO
     ### Determine stable states
-    #data_array = np.array([1/stds[i]*(data_array[i]-np.mean(data_array[i]))+np.mean(data_array[i]) for i in range(n)])
     center = np.array([np.mean(data_array[i]) for i in range(n)])
     ### Get estimations of Kramers-Moyal coefficients
     kmc, edges = km(np.transpose(data_array), bw = bw, bins = bins, powers = powers)
@@ -156,7 +153,7 @@ def PCA_acov_estimator(data_array):
     acov = np.zeros((n, n))
     for i in range(n):
         for j in range(n):
-            acov[i,j] = np.mean(data_array[i,:-1]*data_array[j,1:])#/(np.std(data_array[i,:-1])*np.std(data_array[j,1:]))
+            acov[i,j] = np.mean(data_array[i,:-1]*data_array[j,1:])
     eigvals, eigvecs = np.linalg.eig(acov)
     order = np.argsort(eigvals)
     eigvals = eigvals[order]
